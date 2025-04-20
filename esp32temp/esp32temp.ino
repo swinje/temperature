@@ -235,6 +235,16 @@ void handleConnectRequest(AsyncWebServerRequest *request) {
 }
 
 // To connect to wifi if credentials are loaded from EEPROM
+/*
+    WL_NO_SHIELD        = 255, 
+    WL_IDLE_STATUS      = 0,
+    WL_NO_SSID_AVAIL    = 1,
+    WL_SCAN_COMPLETED   = 2,
+    WL_CONNECTED        = 3,
+    WL_CONNECT_FAILED   = 4,
+    WL_CONNECTION_LOST  = 5,
+    WL_DISCONNECTED     = 6
+*/
 void connectWiFi() {
   // Get stored in EEPROM
   preferences.begin("credentials", false);
@@ -256,12 +266,15 @@ void connectWiFi() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println(WiFi.status());
+  Serial.println();
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
     Serial.println(WiFi.localIP());
     playBuzzer();
-  } 
+  } else {
+      Serial.print("Connect failed with code: ");
+      Serial.println(WiFi.status());
+  }
 }
 
 // Store WiFi credentials in EEPROM
@@ -276,13 +289,12 @@ void storeWiFi(String s, String p) {
 void setup(){
   // Serial port for debugging purposes
   Serial.begin(9600);
-  delay(1000);
+  delay(100);
   Serial.println("");
   Serial.println("Startup");
 
   // Start up the DS18B20 library
   sensors.begin();
-  temperatureC = readDSTemperatureC();
 
   // Mode is both access point and client
   WiFi.mode(WIFI_AP_STA);
@@ -298,6 +310,10 @@ void setup(){
 
   // Client
   connectWiFi();
+  // Give some time to connect
+  delay(500);
+  // Get the sensor going
+  temperatureC = readDSTemperatureC();
 
   // Routing of web pages. ON_AP_FILTER is for access point
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -307,12 +323,14 @@ void setup(){
           scanAvailableNetworks());
     } else
     if (ON_STA_FILTER(request)) {
+      temperatureC = readDSTemperatureC();
       request->send_P(200, "text/html", index_html, processor);
       return;
     } 
   });
 
   server.on("/ws", HTTP_GET, [](AsyncWebServerRequest *request){
+    temperatureC = readDSTemperatureC();
     request->send_P(200, "text/plain", temperatureC.c_str());
   });
 
@@ -362,8 +380,5 @@ void playBuzzer() {
 // Read the temperature every 5 seconds
 // This value is returned by the web pages
 void loop(){
-  temperatureC = readDSTemperatureC();
-  delay(5000);
-
 }
 
