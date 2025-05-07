@@ -17,4 +17,3 @@ DS18B20 sensor
 Piezo Buzzer  
 Suitable enclosing  
 
-# temperature
