@@ -74,6 +74,7 @@ String readDSTemperatureC() {
 
 const char index_html[] PROGMEM = R"rawliteral(
 <meta http-equiv='refresh' content='10'>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <!DOCTYPE html>
 <html lang='en'>
 <head>
@@ -250,6 +251,7 @@ void connectWiFi() {
   preferences.begin("credentials", false);
   ssid = preferences.getString("ssid", ""); 
   password = preferences.getString("password", "");
+  preferences.end();
 
   // No data do not connect
   if (ssid == "" || password == ""){
@@ -271,9 +273,11 @@ void connectWiFi() {
     Serial.println();
     Serial.println(WiFi.localIP());
     playBuzzer();
-  } else {
+    storeAP(false);
+  } else {  
       Serial.print("Connect failed with code: ");
       Serial.println(WiFi.status());
+      storeAP(true);
   }
 }
 
@@ -284,6 +288,22 @@ void storeWiFi(String s, String p) {
   preferences.putString("password", p);
   Serial.println("Network Credentials Saved using Preferences");
   preferences.end();
+}
+
+// Store if AccessPoint enabled in EEPROM
+void storeAP(bool enable) {
+  preferences.begin("active", false);
+  preferences.putBool("ap", enable);
+  Serial.println("Access point enabled Saved using Preferences");
+  preferences.end();
+}
+
+bool checkAP() {
+  bool enable = true;
+  preferences.begin("active", false);
+  enable = preferences.getBool("ap"); 
+  preferences.end();
+  return enable;
 }
 
 void setup(){
@@ -297,6 +317,7 @@ void setup(){
   sensors.begin();
 
   // Mode is both access point and client
+  if(checkAP()) {
   WiFi.mode(WIFI_AP_STA);
   WiFi.disconnect();
   delay(100);
@@ -307,6 +328,11 @@ void setup(){
   Serial.print("[+] AP Created with IP Gateway ");
   Serial.println(WiFi.softAPIP());
   Serial.println();
+  } else {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(100);
+  }
 
   // Client
   connectWiFi();
@@ -323,6 +349,9 @@ void setup(){
           scanAvailableNetworks());
     } else
     if (ON_STA_FILTER(request)) {
+      // Probe needs to "warm up" with two reads
+      temperatureC = readDSTemperatureC();
+      delay(1);
       temperatureC = readDSTemperatureC();
       request->send_P(200, "text/html", index_html, processor);
       return;
@@ -330,8 +359,15 @@ void setup(){
   });
 
   server.on("/ws", HTTP_GET, [](AsyncWebServerRequest *request){
+    // Probe needs to "warm up" with two reads
     temperatureC = readDSTemperatureC();
-    request->send_P(200, "text/plain", temperatureC.c_str());
+    delay(1);
+    temperatureC = readDSTemperatureC();
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", temperatureC.c_str());
+    response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Expires", "0");
+    request->send(response);
   });
 
   server.on("/pick", HTTP_GET, [](AsyncWebServerRequest *request) {
