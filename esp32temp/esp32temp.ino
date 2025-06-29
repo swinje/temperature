@@ -301,7 +301,7 @@ void storeAP(bool enable) {
 bool checkAP() {
   bool enable = true;
   preferences.begin("active", false);
-  enable = preferences.getBool("ap"); 
+    enable = preferences.getBool("ap", true); 
   preferences.end();
   return enable;
 }
