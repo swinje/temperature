@@ -59,12 +59,6 @@ void setup() {
   // Give some time to connect
   delay(500);
 
-  // Initialising the UI will init the display too.
-  /*display.init();
-
-  display.flipScreenVertically();
-  display.setFont(ArialMT_Plain_24);*/
-
    // Routing of web pages. ON_AP_FILTER is for access point
   webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     if (ON_AP_FILTER(request)) {   
@@ -90,19 +84,13 @@ void setup() {
 }
 
 void loop() {
-  // clear the display
   display.clear();
-
-  //display.drawRect(40, 10, 80, 40);
-
 
   display.setTextAlignment(TEXT_ALIGN_RIGHT);
   String data = fetchDataFromServer();
   display.drawString(90, 20, data+"°");  // x=128, height 64
   // write the buffer to the display
   display.display();
-
-
 
   delay(10000);
 }
